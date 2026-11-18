@@ -1969,7 +1969,38 @@
       </form>
       <div class="card" style="max-width:860px;margin-top:16px"><div class="card-head"><h2>Darstellung</h2></div><div class="card-body">
         <div class="chips">${[['system', 'Wie System'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([k, l]) => `<button class="chip ${theme === k ? 'on' : ''}" data-act="theme" data-k="${k}">${l}</button>`).join('')}</div>
-      </div></div>`;
+      </div></div>
+      ${linkCard()}`;
+  }
+
+  // Verknüpfung mit NEXCOUNT (Buchhaltung): Rechnungen buchen Warenausgänge, Eingangsrechnungen Wareneingänge
+  function linkCard() {
+    if (!UI.link) {
+      UI.link = { loading: true };
+      // direkt statt rpc(): fehlt nur diese (neuere) Migration, soll nicht die ganze App „nicht eingerichtet“ melden
+      sb.rpc('nl_link_info').then(({ data, error }) => {
+        UI.link = error ? { error: isMissingSchema(error) ? 'Die Verknüpfung braucht ein Datenbank-Update (Workflow „Supabase-Datenbank“).' : error.message } : { data };
+        render();
+      }, () => { UI.link = { error: 'Keine Verbindung zum Server.' }; render(); });
+    }
+    const L = UI.link;
+    const d = L.data || {};
+    let body;
+    if (L.loading) body = '<p class="muted">Wird geladen …</p>';
+    else if (L.error) body = `<p class="muted">${esc(L.error)}</p>`;
+    else if (d.linked) {
+      body = `<div class="alert">${icon('checkc')}<p>Verknüpft mit der NEXCOUNT-Firma <b>${esc(d.linked.name || '–')}</b> seit ${new Date(d.linked.at).toLocaleDateString('de-AT')}.</p></div>
+        <p class="muted" style="margin-top:10px">Festgeschriebene Rechnungen in NEXCOUNT buchen Warenausgänge, erfasste Eingangsrechnungen Wareneingänge (inkl. Einkaufspreis), Stornos buchen zurück. Du erkennst sie an „(NEXCOUNT)“ in den Bewegungen. NEXCOUNT zeigt deine Bestände in der Preisliste.</p>
+        ${isAdmin() ? '<div class="row" style="margin-top:12px"><button class="btn danger" data-act="link-remove">Verknüpfung trennen</button></div>' : ''}`;
+    } else {
+      const codeHtml = d.code
+        ? `<div class="code-box" style="margin-top:12px"><span class="mono">${esc(d.code.code)}</span><button class="btn ghost icon sm" data-act="copy" data-text="${esc(d.code.code)}" title="Kopieren">${icon('copy')}</button></div>
+          <p class="muted" style="margin-top:8px;font-size:12.5px">Gültig bis ${fmtTime(d.code.expiresAt)}. In NEXCOUNT unter <b>Einstellungen → Funktionen → NEXLOGISTIC</b> eingeben. Bist du dort ebenfalls Admin, geht es auch ohne Code mit einem Klick.</p>`
+        : `<div class="row" style="margin-top:12px"><button class="btn primary" data-act="link-code">${icon('link')} Verknüpfungscode erstellen</button></div>`;
+      body = `<p>Verbinde NEXLOGISTIC mit <b>NEXCOUNT</b>, der Buchhaltung der NEX-Familie: Rechnungen buchen dann automatisch Warenausgänge, Eingangsrechnungen Wareneingänge, und NEXCOUNT zeigt die Bestände in der Preisliste.</p>
+        ${isAdmin() ? codeHtml : '<p class="muted" style="margin-top:10px">Nur Admins können verknüpfen.</p>'}`;
+    }
+    return `<div class="card" style="max-width:860px;margin-top:16px"><div class="card-head"><h2>Verknüpfung mit NEXCOUNT</h2><small class="muted">Buchhaltung</small></div><div class="card-body">${body}</div></div>`;
   }
 
   function viewAccount() {
@@ -2116,6 +2147,14 @@
     copy: (d) => copyText(d.text, d.msg),
     demo: () => loadDemo(),
     theme: (d) => { try { localStorage.setItem('nl-theme', d.k); } catch { /* privat */ } applyTheme(); render(); },
+    'link-code': async () => { UI.link = { data: await rpc('nl_link_create_code') }; render(); },
+    'link-remove': async () => {
+      if (!(await confirmBox('Verknüpfung trennen?', 'NEXCOUNT bucht danach keine Lagerbewegungen mehr. Bereits gebuchte Bewegungen bleiben erhalten.', { ok: 'Trennen', danger: true }))) return;
+      await rpc('nl_link_remove');
+      UI.link = null;
+      toast('Verknüpfung getrennt.');
+      render();
+    },
 
     'ship-new': () => shipmentForm(),
     'ship-edit': (d) => shipmentForm(get('shipments', d.id)),

@@ -1,6 +1,6 @@
 /* NEXLOGISTIC Service Worker – App-Shell offline verfügbar machen (Network-first).
    Pfade sind relativ, damit die App auch unter einem Unterpfad läuft (z. B. GitHub Pages /nexlogistic/). */
-const CACHE = 'nexlogistic-v2';
+const CACHE = 'nexlogistic-v3';
 const ASSETS = ['./', './index.html', './app.css', './app.js', './config.js', './vendor/supabase.js', './icon.svg', './logo.svg', './logo-dark.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

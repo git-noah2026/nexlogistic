@@ -26,6 +26,7 @@ meldet sich mit denselben Zugangsdaten an.
 | **Kontakte**       | Kunden, Empfänger, Lieferanten, Partner/Subunternehmer |
 | **Team**           | Einladungscode, Rollen **Admin**, **Disposition**, **Lager**, **Fahrer:in** |
 | **Tracking**       | Öffentliche Seite `…/?track=NL…` – zeigt nur Status, Orte (PLZ/Ort) und Termin, keine Namen oder Straßen |
+| **NEXCOUNT**       | Verknüpfung mit der Buchhaltung: Rechnungen buchen Warenausgänge, Eingangsrechnungen Wareneingänge (inkl. EK), Stornos buchen zurück; NEXCOUNT zeigt die Bestände in der Preisliste (*Einstellungen → Verknüpfung mit NEXCOUNT*) |
 
 Live-Updates zwischen allen Geräten über Supabase Realtime, Hell-/Dunkelmodus, installierbar als App (PWA).
 
@@ -48,6 +49,10 @@ Live-Updates zwischen allen Geräten über Supabase Realtime, Hell-/Dunkelmodus,
   Admin & Disposition dürfen alles; **Lager** Artikel, Bewegungen, Lagerorte, Kontakte und Sendungen (Kommissionierung);
   **Fahrer:innen** Sendungen und Touren ändern sowie Bewegungen anlegen (Warenausgang beim Tourstart).
 - `nl_next_number` vergibt fortlaufende Nummern (S-00001, T-00001), `nl_track` liefert die öffentliche Tracking-Ansicht.
+- `nl_links`, `nl_link_codes` – Verknüpfung genau einer NEXLOGISTIC-Firma mit genau einer NEXCOUNT-Firma
+  (per Code `NC-…`, 24 h gültig, oder direkt, wenn jemand in beiden Apps Admin ist). Kein direkter Tabellenzugriff:
+  NEXCOUNT nutzt nur `nl_link_status`, `nl_link_articles` (Artikel + Bestand), `nl_link_book` (idempotente Bewegungen
+  `nc_<Beleg>_<Position>`, Storno mit `_s`) und `nl_link_import` (Übernahme des alten NEXCOUNT-Lagers).
 
 ## GitHub ⇄ Cloudflare ⇄ Supabase
 
@@ -72,7 +77,7 @@ Die beiden Apps kommen sich so nicht in die Quere.
 
    Danach unter **Actions → „Supabase-Datenbank“ → Run workflow** die Datenbank einrichten.
    Alternative ohne Token: Inhalt von `supabase/migrations/20261118210000_nexlogistic_init.sql`
-   und danach `…_nexlogistic_lager.sql` einmal im Supabase **SQL Editor** ausführen (beide Dateien sind wiederholbar).
+   danach `…_nexlogistic_lager.sql` und `…_nexlogistic_link.sql` einmal im Supabase **SQL Editor** ausführen (alle Dateien sind wiederholbar; die Verknüpfung setzt das NEXCOUNT-Schema voraus).
 2. **Domain:** `wrangler.jsonc` legt `nexlogistic.andrerer.org` beim ersten Deploy als Custom Domain an
    (die Zone `andrerer.org` muss im selben Cloudflare-Konto liegen).
 3. **Supabase → Authentication → URL Configuration → Redirect URLs:** zusätzlich
