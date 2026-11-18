@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Cloudflare liefert nur die Oberfläche aus (statische Dateien in public/).
+  // Anmeldung, Datenbank und Live-Sync laufen über Supabase (dasselbe Projekt wie NEXCOUNT).
+  "name": "nexlogistic",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public"
+  },
+  // Eigene Domain – wird beim ersten Deploy automatisch angelegt (Zone andrerer.org muss im selben Cloudflare-Konto liegen)
+  "routes": [{ "pattern": "nexlogistic.andrerer.org", "custom_domain": true }]
+}

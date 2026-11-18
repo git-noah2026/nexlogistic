@@ -1,0 +1,12 @@
+{
+  "name": "NEXLOGISTIC by Andrerer",
+  "short_name": "NEXLOGISTIC",
+  "description": "Sendungen, Touren und Fuhrpark – Logistik für die Kleinen",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16133a",
+  "theme_color": "#1e1b4b",
+  "lang": "de",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
