@@ -1,7 +1,7 @@
 {
   "name": "NEXLOGISTIC by Andrerer",
   "short_name": "NEXLOGISTIC",
-  "description": "Sendungen, Touren und Fuhrpark – Logistik für die Kleinen",
+  "description": "Lager & Logistik – Bestände, Inventur, Versand und Touren",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

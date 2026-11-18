@@ -111,6 +111,15 @@
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
     weight: '<circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/>',
     activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.5-9.17 4.17a2 2 0 0 1-1.66 0L2 12.5"/><path d="m22 17.5-9.17 4.17a2 2 0 0 1-1.66 0L2 17.5"/>',
+    warehouse: '<path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12M6 14h12"/><rect width="12" height="12" x="6" y="10"/>',
+    clipboard: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+    minus: '<path d="M5 12h14"/>',
+    swap: '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    barcode: '<path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14"/>',
+    tag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+    euro: '<path d="M4 10h12M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/>',
     building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
   };
   const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -134,9 +143,17 @@
   const SERVICES = { standard: 'Standard', express: 'Express', sameday: 'Same Day', freight: 'Stückgut', pickup: 'Abholung' };
   const VEHICLE_TYPES = ['Transporter', 'Kastenwagen', 'Pritsche', 'LKW bis 7,5 t', 'LKW über 7,5 t', 'Sattelzug', 'PKW', 'Lastenrad'];
   const VEHICLE_STATUS = { active: { l: 'Einsatzbereit', c: 'ok' }, workshop: { l: 'Werkstatt', c: 'warn' }, inactive: { l: 'Außer Dienst', c: '' } };
-  const ROLES = { admin: 'Admin', dispo: 'Disposition', driver: 'Fahrer:in' };
+  const ROLES = { admin: 'Admin', dispo: 'Disposition', lager: 'Lager', driver: 'Fahrer:in' };
   const COUNTRIES = ['AT', 'DE', 'CH', 'IT', 'SI', 'HU', 'CZ', 'SK', 'LI', 'HR', 'PL'];
-  const COLS = ['shipments', 'tours', 'vehicles', 'drivers', 'contacts', 'settings'];
+  const COLS = ['shipments', 'tours', 'vehicles', 'drivers', 'contacts', 'settings', 'articles', 'movements', 'locations'];
+  const MV_TYPES = {
+    initial: 'Anfangsbestand', in: 'Wareneingang', out: 'Warenausgang', ship: 'Versand', return: 'Rücknahme',
+    transfer: 'Umbuchung', correction: 'Inventur', storno: 'Storno',
+  };
+  const MANUAL_MV = ['initial', 'in', 'out', 'transfer', 'correction'];
+  const UNITS = ['Stk', 'Karton', 'Palette', 'kg', 'l', 'm', 'm²', 'Paar', 'Set', 'Rolle', 'Sack'];
+  // Ab diesen Sendungsstatus ist die Ware physisch aus dem Lager (Warenausgang gebucht)
+  const STOCK_OUT_ST = ['picked', 'transit', 'out', 'delivered', 'failed'];
 
   const badge = (map, key) => {
     const s = map[key] || { l: key || '–', c: '' };
@@ -163,6 +180,40 @@
   const role = () => S.me?.user?.role;
   const isAdmin = () => role() === 'admin';
   const canPlan = () => role() === 'admin' || role() === 'dispo';
+  const canStock = () => canPlan() || role() === 'lager';
+  const r3 = (n) => Math.round((Number(n) || 0) * 1000) / 1000;
+  const fmtQty = (n) => new Intl.NumberFormat('de-AT', { maximumFractionDigits: 3 }).format(Number(n) || 0);
+
+  // ---------------------------------------------------------------- Lager: Bestände
+  // Bestände werden nie gespeichert, sondern immer aus den (unveränderlichen) Bewegungen berechnet –
+  // so gibt es keine Konflikte, wenn mehrere Geräte gleichzeitig buchen.
+  let stockCache = null;
+  function stock() {
+    if (stockCache) return stockCache;
+    const total = new Map();
+    const byLoc = new Map();
+    const reserved = new Map();
+    for (const m of S.db.movements.values()) {
+      const q = num(m.qty);
+      total.set(m.articleId, (total.get(m.articleId) || 0) + q);
+      const k = `${m.articleId}|${m.locationId || ''}`;
+      byLoc.set(k, (byLoc.get(k) || 0) + q);
+    }
+    for (const s of S.db.shipments.values()) {
+      if (s.stockBooked || !OPEN_ST.includes(s.status)) continue;
+      for (const it of s.items || []) reserved.set(it.articleId, (reserved.get(it.articleId) || 0) + num(it.qty));
+    }
+    stockCache = { total, byLoc, reserved };
+    return stockCache;
+  }
+  const qtyOf = (aid) => r3(stock().total.get(aid) || 0);
+  const qtyAt = (aid, loc) => r3(stock().byLoc.get(`${aid}|${loc || ''}`) || 0);
+  const reservedOf = (aid) => r3(stock().reserved.get(aid) || 0);
+  const isLow = (a) => num(a.min) > 0 && qtyOf(a.id) <= num(a.min);
+  const activeArticles = () => list('articles').filter((a) => !a.archived).sort(byText((a) => a.name));
+  const locations = () => [{ id: '', name: companySettings().mainLocation || 'Hauptlager' }, ...list('locations').sort(byText((l) => l.name))];
+  const locName = (id) => (locations().find((l) => l.id === (id || '')) || { name: 'Lagerort gelöscht' }).name;
+  const articleLabel = (a) => (a ? `${a.sku ? `${a.sku} · ` : ''}${a.name}` : '(Artikel gelöscht)');
   const companySettings = () => get('settings', 'company') || {};
   const myDriverIds = () => list('drivers').filter((d) => d.userId && d.userId === S.me?.user?.id).map((d) => d.id);
 
@@ -196,6 +247,7 @@
 
   // ---------------------------------------------------------------- Daten
   function putRow(row) {
+    stockCache = null;
     const m = S.db[row.collection];
     if (!m) return;
     if (row.deleted || !row.data) m.delete(row.id);
@@ -216,6 +268,7 @@
       if (data.length < 1000) break;
     }
     S.db = fresh;
+    stockCache = null;
     S.loaded = true;
   }
 
@@ -247,7 +300,22 @@
     const prev = S.db[col].get(id);
     const data = { ...obj, id, updatedAt: new Date().toISOString() };
     if (!data.createdAt) data.createdAt = data.updatedAt;
+    if (!prev && col === 'movements') data.by = S.me.user.name;
+    // Sendungen mit Lagerartikeln: Warenausgang/Rücknahme automatisch passend zum Status buchen
+    let stockMoves = [];
+    if (col === 'shipments' && (data.items || []).length) {
+      const want = STOCK_OUT_ST.includes(data.status);
+      if (want !== !!data.stockBooked) {
+        stockMoves = data.items.filter((it) => it.articleId && num(it.qty)).map((it) => ({
+          articleId: it.articleId, qty: want ? -num(it.qty) : num(it.qty), type: want ? 'ship' : 'return',
+          locationId: it.locationId || '', date: today(), unitCost: num(get('articles', it.articleId)?.cost),
+          note: `Sendung ${data.number}`, shipmentId: id,
+        }));
+        data.stockBooked = want;
+      }
+    }
     S.db[col].set(id, data);
+    stockCache = null;
     scheduleRender();
     const cid = S.me.company.id;
     const res = prev
@@ -259,12 +327,14 @@
       const msg = res.error?.message || 'Keine Berechtigung für diese Änderung.';
       throw new Error(isNetworkMsg(msg) ? 'Keine Verbindung – Änderung nicht gespeichert.' : /row-level security/i.test(msg) ? 'Keine Berechtigung für diese Änderung.' : msg);
     }
+    for (const m of stockMoves) await save('movements', m);
     return data;
   }
 
   async function remove(col, id) {
     const prev = S.db[col].get(id);
     S.db[col].delete(id);
+    stockCache = null;
     scheduleRender();
     const { error } = await sb.from('nl_records').update({ deleted: true, data: null }).match({ company_id: S.me.company.id, collection: col, id });
     if (error) {
@@ -385,6 +455,7 @@
   };
 
   function render() {
+    stockCache = null;
     const app = $('#app');
     // Fokus & Cursor in Suchfeldern über das Neuzeichnen hinweg behalten
     const a = document.activeElement;
@@ -432,13 +503,13 @@
     return `<div class="auth-art">
       <img src="logo-dark.svg" alt="NEXLOGISTIC by Andrerer">
       <div class="claim">
-        <h1>Sendungen, Touren &amp; Fuhrpark – <em>endlich an einem Ort.</em></h1>
-        <p>NEXLOGISTIC ist die Logistik-Software für kleine Transportunternehmen, Händler mit eigener Zustellung und Kurierdienste.</p>
+        <h1>Lager &amp; Logistik – <em>vom Regal bis zur Haustür.</em></h1>
+        <p>NEXLOGISTIC ist das Lagersystem der NEX-Familie: Bestände, Wareneingang, Inventur – und die Zustellung gleich dazu.</p>
         <ul>
-          <li>${icon('package')} Sendungen erfassen, Etiketten &amp; Lieferscheine drucken</li>
-          <li>${icon('route')} Touren disponieren und Stopps live verfolgen</li>
-          <li>${icon('truck')} Fuhrpark mit §57a-Pickerl, Service &amp; Führerscheinen</li>
-          <li>${icon('link')} Öffentlicher Tracking-Link für deine Kund:innen</li>
+          <li>${icon('layers')} Lagerartikel mit Mindestbestand, mehreren Lagerorten &amp; Lagerplätzen</li>
+          <li>${icon('clipboard')} Wareneingang, Umbuchung und Inventur mit Zählliste</li>
+          <li>${icon('package')} Versand direkt aus dem Lager – mit Etikett, Lieferschein &amp; Tracking</li>
+          <li>${icon('route')} Touren, Fahrer-App und Fuhrpark mit §57a-Pickerl</li>
         </ul>
       </div>
       <div class="fine">Ein Andrerer-Konto für alle NEX-Apps – auch für NEXCOUNT.</div>
@@ -522,7 +593,7 @@
   // ---------------------------------------------------------------- App-Rahmen
   const route = () => {
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-    return { name: parts[0] || (canPlan() ? 'dashboard' : 'my'), id: parts[1] };
+    return { name: parts[0] || (canStock() ? 'dashboard' : 'my'), id: parts[1] };
   };
 
   function navItems() {
@@ -530,11 +601,14 @@
     const open = list('shipments').filter((s) => !DONE_ST.includes(s.status)).length;
     const toursToday = list('tours').filter((x) => x.date === t && x.status !== 'done').length;
     const mine = myDriverIds().length > 0;
+    const low = activeArticles().filter(isLow).length;
     const items = [];
-    if (canPlan()) {
-      items.push(['', [['dashboard', 'Übersicht', 'grid'], ['shipments', 'Sendungen', 'package', open], ['tours', 'Touren', 'route', toursToday], ...(mine ? [['my', 'Meine Tour', 'nav']] : [])]]);
-      items.push(['Stammdaten', [['fleet', 'Fuhrpark', 'truck'], ['drivers', 'Fahrer:innen', 'idcard'], ['contacts', 'Kontakte', 'book']]]);
-      items.push(['Verwaltung', [['team', 'Team', 'users'], ['settings', 'Einstellungen', 'sliders']]]);
+    if (canStock()) {
+      items.push(['', [['dashboard', 'Übersicht', 'grid']]]);
+      items.push(['Lager', [['stock', 'Bestand', 'layers', low], ['moves', 'Bewegungen', 'swap'], ['inventory', 'Inventur', 'clipboard'], ['locations', 'Lagerorte', 'warehouse']]]);
+      items.push(['Logistik', [['shipments', 'Sendungen', 'package', open], ...(canPlan() ? [['tours', 'Touren', 'route', toursToday]] : []), ...(mine ? [['my', 'Meine Tour', 'nav']] : [])]]);
+      items.push(['Stammdaten', [...(canPlan() ? [['fleet', 'Fuhrpark', 'truck'], ['drivers', 'Fahrer:innen', 'idcard']] : []), ['contacts', 'Kontakte', 'book']]]);
+      items.push(['Verwaltung', [['team', 'Team', 'users'], ...(canPlan() ? [['settings', 'Einstellungen', 'sliders']] : [])]]);
     } else {
       items.push(['', [['my', 'Meine Tour', 'nav'], ['shipments', 'Sendungen', 'package', open]]]);
       items.push(['Verwaltung', [['team', 'Team', 'users']]]);
@@ -542,7 +616,7 @@
     return items;
   }
 
-  const ROUTE_PARENT = { shipment: 'shipments', tour: 'tours' };
+  const ROUTE_PARENT = { shipment: 'shipments', tour: 'tours', article: 'stock' };
 
   function viewShell() {
     const r = route();
@@ -579,9 +653,11 @@
       dashboard: viewDashboard, shipments: viewShipments, shipment: viewShipment, tours: viewTours, tour: viewTour,
       fleet: viewFleet, drivers: viewDrivers, contacts: viewContacts, my: viewMyTour, team: viewTeam,
       settings: viewSettings, account: viewAccount,
+      stock: viewStock, article: viewArticle, moves: viewMoves, inventory: viewInventory, locations: viewLocations,
     };
-    const planOnly = ['dashboard', 'tours', 'tour', 'fleet', 'drivers', 'contacts', 'settings'];
-    if (!V[r.name] || (planOnly.includes(r.name) && !canPlan())) return empty('alert', 'Seite nicht gefunden', 'Diese Seite gibt es nicht oder du hast keinen Zugriff.', '<a class="btn" href="#/">Zur Startseite</a>');
+    const planOnly = ['tours', 'tour', 'fleet', 'drivers', 'settings'];
+    const stockOnly = ['dashboard', 'stock', 'article', 'moves', 'inventory', 'locations', 'contacts'];
+    if (!V[r.name] || (planOnly.includes(r.name) && !canPlan()) || (stockOnly.includes(r.name) && !canStock())) return empty('alert', 'Seite nicht gefunden', 'Diese Seite gibt es nicht oder du hast keinen Zugriff.', '<a class="btn" href="#/">Zur Startseite</a>');
     return V[r.name](r.id);
   }
 
@@ -599,13 +675,19 @@
     const hour = new Date().getHours();
     const hello = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
 
-    if (!ships.length && !list('tours').length && !list('vehicles').length) {
+    const arts = activeArticles();
+    if (!ships.length && !arts.length && !list('tours').length && !list('vehicles').length) {
       return `${pageHead(`${hello}, ${esc(first)}`, `${fmtDay(t)} · ${esc(S.me.company.name)}`)}
-        <div class="card"><div class="card-body">${empty('package', 'Los geht’s mit deiner ersten Sendung',
-          'Erfasse Fahrzeuge, Fahrer:innen und Sendungen – oder lade Beispieldaten, um NEXLOGISTIC in Ruhe auszuprobieren.',
-          `<div class="row" style="justify-content:center;margin-top:14px"><button class="btn primary" data-act="ship-new">${icon('plus')} Neue Sendung</button>
+        <div class="card"><div class="card-body">${empty('warehouse', 'Willkommen in deinem Lager',
+          'Lege Lagerartikel mit Anfangsbestand und Mindestbestand an, buche Wareneingänge und versende Ware direkt aus dem Lager – oder lade Beispieldaten, um NEXLOGISTIC in Ruhe auszuprobieren.',
+          `<div class="row wrap" style="justify-content:center;margin-top:14px"><button class="btn primary" data-act="art-new">${icon('plus')} Erster Lagerartikel</button>
+           ${canPlan() ? `<button class="btn" data-act="ship-new">${icon('package')} Neue Sendung</button>` : ''}
            ${isAdmin() ? `<button class="btn" data-act="demo">${icon('activity')} Beispieldaten laden</button>` : ''}</div>`)}</div></div>`;
     }
+    const lowArts = arts.filter(isLow).sort((a, b) => qtyOf(a.id) / (num(a.min) || 1) - qtyOf(b.id) / (num(b.min) || 1));
+    const stockValue = sum(arts, (a) => Math.max(0, qtyOf(a.id)) * num(a.cost));
+    const units = sum(arts, (a) => Math.max(0, qtyOf(a.id)));
+    const moves = list('movements').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 7);
 
     // Fälligkeiten Fuhrpark & Fahrer
     const due = [];
@@ -624,18 +706,31 @@
     const events = ships.flatMap((s) => (s.events || []).map((e) => ({ ...e, s }))).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 7);
 
     return `${pageHead(`${hello}, ${esc(first)}`, `${fmtDay(t)} · ${esc(S.me.company.name)}`,
-      `<a class="btn" href="#/tours">${icon('route')} Disposition</a><button class="btn primary" data-act="ship-new">${icon('plus')} Neue Sendung</button>`)}
+      `<button class="btn" data-act="move-new" data-type="in">${icon('download')} Wareneingang</button>
+       ${canPlan() ? `<button class="btn primary" data-act="ship-new">${icon('plus')} Neue Sendung</button>` : `<button class="btn primary" data-act="move-new" data-type="out">${icon('minus')} Warenausgang</button>`}`)}
       <div class="kpis">
-        <div class="kpi hero"><div class="label"><span class="ic">${icon('calendar')}</span>Heute zuzustellen</div><div class="value">${dueToday.length}</div><div class="sub">${dueToday.filter((s) => !s.tourId).length} davon noch ohne Tour</div></div>
-        <div class="kpi"><div class="label"><span class="ic">${icon('truck')}</span>Unterwegs</div><div class="value">${moving.length}</div><div class="sub">abgeholt oder in Zustellung</div></div>
-        <div class="kpi"><div class="label"><span class="ic">${icon('checkc')}</span>Heute zugestellt</div><div class="value">${deliveredToday.length}</div><div class="sub">${fmtKg(sum(deliveredToday, pkgWeight))}</div></div>
-        <div class="kpi"><div class="label"><span class="ic">${icon('alert')}</span>Probleme</div><div class="value">${problems.length}</div><div class="sub">Zustellproblem oder Retour</div></div>
+        <div class="kpi hero"><div class="label"><span class="ic">${icon('euro')}</span>Lagerwert</div><div class="value">${money(stockValue)}</div><div class="sub">${fmtQty(units)} Einheiten · ${arts.length} Artikel</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('alert')}</span>Nachbestellen</div><div class="value" style="${lowArts.length ? 'color:var(--bad)' : ''}">${lowArts.length}</div><div class="sub">am oder unter Mindestbestand</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('calendar')}</span>Heute zu versenden</div><div class="value">${dueToday.length}</div><div class="sub">${dueToday.filter((s) => !s.tourId).length} davon noch ohne Tour</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('truck')}</span>Unterwegs</div><div class="value">${moving.length}</div><div class="sub">${deliveredToday.length} heute zugestellt${problems.length ? ` · <b style="color:var(--bad)">${problems.length} Problem${problems.length === 1 ? '' : 'e'}</b>` : ''}</div></div>
       </div>
       <div class="grid g-main">
         <div class="stack">
-          <div class="card"><div class="card-head"><h2>Touren heute</h2><a class="btn sm" href="#/tours">Alle Touren</a></div>
+          <div class="card"><div class="card-head"><h2>Nachbestellen</h2><a class="btn sm" href="#/stock" data-act="stock-low">Alle anzeigen</a></div>
+            ${lowArts.length ? `<div class="table-wrap"><table><thead><tr><th>Artikel</th><th class="hide-m">Lagerort</th><th style="width:34%">Bestand</th><th></th></tr></thead><tbody>
+              ${lowArts.slice(0, 6).map((a) => {
+                const q = qtyOf(a.id);
+                return `<tr class="click" data-href="#/article/${esc(a.id)}"><td><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.sku || '')}</div></td>
+                  <td class="hide-m">${esc(locName(a.locationId))}${a.bin ? ` · ${esc(a.bin)}` : ''}</td>
+                  <td><div class="row" style="font-size:13px;margin-bottom:5px"><b style="color:var(--bad)">${fmtQty(q)}</b><span class="muted">/ ${fmtQty(a.min)} ${esc(a.unit || '')}</span></div>
+                    <div class="progress over"><i style="width:${Math.max(4, Math.min(100, (q / num(a.min)) * 100))}%"></i></div></td>
+                  <td class="right"><button class="btn sm" data-act="move-new" data-type="in" data-id="${esc(a.id)}">${icon('plus')} Eingang</button></td></tr>`;
+              }).join('')}</tbody></table></div>`
+              : `<div class="card-body">${empty('checkc', arts.length ? 'Alles ausreichend vorrätig' : 'Noch keine Lagerartikel', arts.length ? 'Kein Artikel liegt am oder unter seinem Mindestbestand.' : 'Lege Artikel an, um Bestände zu führen.')}</div>`}
+          </div>
+          ${canPlan() ? `<div class="card"><div class="card-head"><h2>Touren heute</h2><a class="btn sm" href="#/tours">Alle Touren</a></div>
             <div class="card-body">${toursToday.length ? `<div class="tours-grid">${toursToday.map(tourCard).join('')}</div>`
-              : empty('route', 'Heute keine Touren', 'Plane eine Tour und weise Sendungen zu.', `<button class="btn primary sm" data-act="tour-new" data-date="${t}">${icon('plus')} Tour planen</button>`)}</div></div>
+              : empty('route', 'Heute keine Touren', 'Plane eine Tour und weise Sendungen zu.', `<button class="btn primary sm" data-act="tour-new" data-date="${t}">${icon('plus')} Tour planen</button>`)}</div></div>` : ''}
           <div class="card"><div class="card-head"><h2>Noch nicht eingeplant</h2><span class="badge violet plain">${unplanned.length}</span></div>
             ${unplanned.length ? `<div class="table-wrap"><table><thead><tr><th>Sendung</th><th>Empfänger</th><th>Zustellung</th><th class="num">Gewicht</th></tr></thead><tbody>
               ${unplanned.slice(0, 8).map((s) => `<tr class="click" data-href="#/shipment/${esc(s.id)}"><td><div class="t1">${esc(s.number)}</div><div class="t2">${esc(SERVICES[s.service] || '')}</div></td>
@@ -645,11 +740,14 @@
           </div>
         </div>
         <div class="stack">
-          <div class="card"><div class="card-head"><h2>Fälligkeiten</h2></div>
+          <div class="card"><div class="card-head"><h2>Letzte Lagerbewegungen</h2><a class="btn sm" href="#/moves">Alle</a></div>
+            ${moves.length ? `<div class="list">${moves.map(moveItem).join('')}</div>` : '<div class="card-body"><p class="muted" style="margin:0">Noch keine Bewegungen.</p></div>'}
+          </div>
+          ${canPlan() ? `<div class="card"><div class="card-head"><h2>Fälligkeiten</h2></div>
             ${due.length ? `<div class="list">${due.slice(0, 8).map((d) => `<a class="item" href="${d.href}">${icon(d.ic)}<span class="grow">${esc(d.text)}</span>${dueBadge(d.date, '', d.warn || 30)}</a>`).join('')}</div>`
               : `<div class="card-body"><p class="muted" style="margin:0">Keine Pickerl-, Service- oder Führerscheintermine in den nächsten Wochen.</p></div>`}
-          </div>
-          <div class="card"><div class="card-head"><h2>Letzte Aktivitäten</h2></div>
+          </div>` : ''}
+          <div class="card"><div class="card-head"><h2>Letzte Sendungsereignisse</h2></div>
             ${events.length ? `<div class="card-body"><ul class="timeline">${events.map((e) => `<li><b><a href="#/shipment/${esc(e.s.id)}">${esc(e.s.number)}</a> · ${esc(SHIP_STATUS[e.status]?.l || e.status)}</b><small>${fmtTime(e.at)}${e.by ? ` · ${esc(e.by)}` : ''}</small></li>`).join('')}</ul></div>`
               : '<div class="card-body"><p class="muted" style="margin:0">Noch keine Aktivitäten.</p></div>'}
           </div>
@@ -734,6 +832,11 @@
       <div class="grid g-main">
         <div class="stack">
           <div class="grid g2">${addr(s.sender, 'Absender')}${addr(s.recipient, 'Empfänger')}</div>
+          ${(s.items || []).length ? `<div class="card"><div class="card-head"><h2>Ware aus dem Lager</h2>${s.stockBooked ? '<span class="badge ok">ausgebucht</span>' : DONE_ST.includes(s.status) ? '' : '<span class="badge violet">reserviert</span>'}</div>
+            <div class="table-wrap"><table><thead><tr><th>Artikel</th>${multiLoc() ? '<th>Lagerort</th>' : ''}<th class="num">Menge</th><th class="num">Bestand jetzt</th></tr></thead><tbody>
+            ${s.items.map((it) => { const a = get('articles', it.articleId); return `<tr><td>${a ? `<a href="#/article/${esc(a.id)}"><b>${esc(a.name)}</b></a><div class="t2">${esc(a.sku || '')}${a.bin ? ` · Platz ${esc(a.bin)}` : ''}</div>` : '<span class="muted">(Artikel gelöscht)</span>'}</td>
+              ${multiLoc() ? `<td>${esc(locName(it.locationId))}</td>` : ''}<td class="num"><b>${fmtQty(it.qty)}</b> ${esc(a?.unit || '')}</td><td class="num">${a ? stockCell(a) : '–'}</td></tr>`; }).join('')}
+            </tbody></table></div></div>` : ''}
           <div class="card"><div class="card-head"><h2>Packstücke</h2><span class="muted">${fmtM3(pkgVolume(s))}</span></div>
             <div class="table-wrap"><table><thead><tr><th>Inhalt</th><th class="num">Anzahl</th><th class="num">Gewicht/Stk.</th><th class="num">Maße (L×B×H cm)</th></tr></thead><tbody>
             ${(s.packages || []).map((p) => `<tr><td>${esc(p.desc || 'Paket')}</td><td class="num">${Math.max(1, num(p.qty) || 1)}</td><td class="num">${fmtKg(p.weight)}</td><td class="num">${[p.l, p.w, p.h].every((x) => num(x)) ? `${num(p.l)}×${num(p.w)}×${num(p.h)}` : '–'}</td></tr>`).join('')
@@ -788,8 +891,22 @@
     return { name: S.me.company.name, street: d.street || '', zip: d.zip || '', city: d.city || '', country: d.country || 'AT', phone: c.phone || '' };
   }
 
+  const itemRow = (it = {}, locked = false) => `<tr data-item>
+    <td><select data-k="articleId" style="min-width:220px" ${locked ? 'disabled' : ''}>${articleOptions(it.articleId || '')}</select></td>
+    <td><input data-k="qty" value="${esc(it.qty ?? '')}" inputmode="decimal" placeholder="Menge" style="width:90px" ${locked ? 'disabled' : ''}></td>
+    ${multiLoc() ? `<td><select data-k="locationId" ${locked ? 'disabled' : ''}>${locOpts(it.locationId ?? (get('articles', it.articleId)?.locationId || ''))}</select></td>` : ''}
+    <td>${locked ? '' : `<button type="button" class="btn ghost icon sm" data-rm-item title="Entfernen">${icon('x')}</button>`}</td></tr>`;
+
   function shipmentForm(existing = null, preset = {}) {
     const s = existing || { service: 'standard', status: 'draft', sender: companyAddress(), recipient: { country: 'AT' }, packages: [{ qty: 1 }], deliveryDate: addDays(today(), 1), ...preset };
+    const locked = !!s.stockBooked;
+    const withItems = activeArticles().length > 0 || (s.items || []).length > 0;
+    const itemsBlock = withItems ? `<fieldset><legend>Ware aus dem Lager</legend>
+          ${locked ? `<div class="alert">${icon('info')}<p>Die Ware ist bereits ausgebucht – Positionen sind gesperrt. Setze den Status zurück auf „Erfasst“, um sie zu ändern.</p></div>` : '<small class="muted">Wird beim Status „Abgeholt“ bzw. beim Tourstart automatisch aus dem Lager ausgebucht und bis dahin reserviert.</small>'}
+          <div class="table-wrap"><table><thead><tr><th>Artikel</th><th>Menge</th>${multiLoc() ? '<th>aus Lagerort</th>' : ''}<th></th></tr></thead>
+          <tbody data-items>${(s.items || []).map((it) => itemRow(it, locked)).join('') || (locked ? '' : itemRow())}</tbody></table></div>
+          ${locked ? '' : `<div><button type="button" class="btn sm" data-add-item>${icon('plus')} Artikel</button></div>`}
+        </fieldset>` : '';
     modal({
       title: existing ? `Sendung ${s.number} bearbeiten` : 'Neue Sendung', size: 'lg', submit: existing ? 'Speichern' : 'Sendung anlegen',
       body: `<div class="form">
@@ -798,6 +915,7 @@
         <div class="cols"><fieldset><legend>Absender</legend>${addressFields('sender', s.sender)}</fieldset>
         <fieldset><legend>Empfänger</legend>${addressFields('recipient', s.recipient, true)}
           ${existing ? '' : '<label class="check"><input type="checkbox" name="saveContact" value="1"> Als Kontakt speichern</label>'}</fieldset></div>
+        ${itemsBlock}
         <fieldset><legend>Packstücke</legend>
           <div class="table-wrap"><table class="pkg-table"><thead><tr><th>Inhalt</th><th>Anzahl</th><th>Gewicht/Stk.</th><th>Maße in cm</th><th></th></tr></thead>
           <tbody data-pkgs>${(s.packages?.length ? s.packages : [{ qty: 1 }]).map(pkgRow).join('')}</tbody></table></div>
@@ -812,6 +930,15 @@
         const tbody = $('[data-pkgs]', form);
         $('[data-add-pkg]', form).addEventListener('click', () => { tbody.insertAdjacentHTML('beforeend', pkgRow({ qty: 1 })); $('tr:last-child input', tbody).focus(); });
         tbody.addEventListener('click', (e) => { if (e.target.closest('[data-rm-pkg]') && tbody.children.length > 1) e.target.closest('tr').remove(); });
+        const items = $('[data-items]', form);
+        $('[data-add-item]', form)?.addEventListener('click', () => { items.insertAdjacentHTML('beforeend', itemRow()); $('tr:last-child select', items).focus(); });
+        items?.addEventListener('click', (e) => { if (e.target.closest('[data-rm-item]')) e.target.closest('tr').remove(); });
+        items?.addEventListener('change', (e) => {
+          if (e.target.dataset.k !== 'articleId') return;
+          const ls = $('[data-k="locationId"]', e.target.closest('tr'));
+          const art = get('articles', e.target.value);
+          if (ls && art) ls.value = art.locationId || '';
+        });
         $$('[data-fill]', form).forEach((selEl) => selEl.addEventListener('change', () => {
           const pre = selEl.dataset.fill;
           const src = selEl.value === '__company' ? companyAddress() : get('contacts', selEl.value);
@@ -828,9 +955,16 @@
           .filter((p) => p.desc || num(p.weight) || num(p.l))
           .map((p) => ({ desc: p.desc, qty: Math.max(1, Math.round(num(p.qty)) || 1), weight: num(p.weight), l: num(p.l), w: num(p.w), h: num(p.h) }));
         if (!packages.length) packages.push({ desc: '', qty: 1, weight: 0, l: 0, w: 0, h: 0 });
+        const items = locked ? (s.items || []) : $$('[data-item]', form).map((tr) => Object.fromEntries($$('[data-k]', tr).map((i) => [i.dataset.k, i.value.trim()])))
+          .filter((it) => it.articleId && num(it.qty) > 0)
+          .map((it) => ({ articleId: it.articleId, qty: num(it.qty), locationId: it.locationId ?? (get('articles', it.articleId)?.locationId || '') }));
+        // Gewicht aus den Artikeln übernehmen, wenn bei den Packstücken keines erfasst ist
+        const itemsWeight = sum(items, (it) => num(it.qty) * num(get('articles', it.articleId)?.weight));
+        if (itemsWeight && !sum(packages, (p) => p.qty * p.weight)) packages[0].weight = Math.round((itemsWeight / packages[0].qty) * 100) / 100;
+        const short = items.filter((it) => num(it.qty) > qtyOf(it.articleId) - reservedOf(it.articleId) + sum((s.items || []).filter((o) => !s.stockBooked && o.articleId === it.articleId), (o) => o.qty));
         const data = {
           ...s, service: v.service, reference: v.reference, customerId: v.customerId || null,
-          sender: v.sender, recipient: v.recipient, packages,
+          sender: v.sender, recipient: v.recipient, packages, items,
           pickupDate: v.pickupDate, deliveryDate: v.deliveryDate, windowFrom: v.windowFrom, windowTo: v.windowTo,
           cod: num(v.cod), value: num(v.value), notes: v.notes,
         };
@@ -845,6 +979,7 @@
         }
         const saved = await save('shipments', data);
         toast(existing ? 'Sendung gespeichert.' : `Sendung ${saved.number} angelegt.`);
+        if (short.length) toast(`Achtung: zu wenig verfügbar – ${short.map((it) => get('articles', it.articleId)?.name).join(', ')}`, 'bad');
         if (!existing) location.hash = `#/shipment/${saved.id}`;
       },
     });
@@ -934,6 +1069,9 @@
   function printDeliveryNote(s) {
     printHtml(`<div class="doc">${docHead('Lieferschein', `Nr. <b>${esc(s.number)}</b><br>Datum ${fmtDate(s.deliveryDate || today())}<br>Tracking ${esc(s.trackingCode)}`)}
       <div class="doc-cols"><div><div class="lbl">Absender</div>${addrHtml(s.sender)}</div><div><div class="lbl">Empfänger</div>${addrHtml(s.recipient)}</div></div>
+      ${(s.items || []).length ? `<table style="width:100%;border-collapse:collapse;margin-bottom:16px"><thead><tr><th style="text-align:left">Pos.</th><th style="text-align:left">Art.-Nr.</th><th style="text-align:left">Artikel</th><th style="text-align:right">Menge</th><th style="text-align:left">Einheit</th></tr></thead><tbody>
+        ${s.items.map((it, i) => { const a = get('articles', it.articleId) || {}; return `<tr><td>${i + 1}</td><td>${esc(a.sku || '')}</td><td>${esc(a.name || '')}${a.ean ? `<br><span style="font-size:8.5pt;color:#666">EAN ${esc(a.ean)}</span>` : ''}</td><td style="text-align:right"><b>${fmtQty(it.qty)}</b></td><td>${esc(a.unit || '')}</td></tr>`; }).join('')}
+      </tbody></table><div class="lbl">Packstücke</div>` : ''}
       <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Pos.</th><th style="text-align:left">Inhalt</th><th style="text-align:right">Anzahl</th><th style="text-align:right">Gewicht</th><th style="text-align:right">Maße (cm)</th></tr></thead><tbody>
       ${(s.packages || []).map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.desc || 'Paket')}</td><td style="text-align:right">${Math.max(1, num(p.qty) || 1)}</td><td style="text-align:right">${fmtKg(num(p.weight) * Math.max(1, num(p.qty) || 1))}</td><td style="text-align:right">${[p.l, p.w, p.h].every((x) => num(x)) ? `${num(p.l)}×${num(p.w)}×${num(p.h)}` : '–'}</td></tr>`).join('')}
       <tr><td></td><td><b>Gesamt</b></td><td style="text-align:right"><b>${pkgCount(s)}</b></td><td style="text-align:right"><b>${fmtKg(pkgWeight(s))}</b></td><td style="text-align:right">${fmtM3(pkgVolume(s))}</td></tr>
@@ -944,6 +1082,474 @@
       <div class="sign"><div>Ort, Datum</div><div>Unterschrift Empfänger:in (Name in Blockschrift)</div></div>
       <div style="margin-top:26px;width:70mm">${barcode(s.trackingCode)}<div style="font:700 10pt var(--mono);letter-spacing:.1em;text-align:center">${esc(s.trackingCode)}</div></div>
     </div>`);
+  }
+
+  // =============================================================== Lager
+  const qtyColor = (q) => (q > 0 ? 'var(--ok)' : q < 0 ? 'var(--bad)' : 'var(--muted)');
+  function moveItem(m) {
+    const a = get('articles', m.articleId);
+    const q = num(m.qty);
+    return `<a class="item" href="#/article/${esc(m.articleId)}"><span class="grow"><b>${esc(a?.name || '(gelöscht)')}</b><div class="t2 muted">${esc(MV_TYPES[m.type] || m.type)} · ${fmtDate(m.date)}${m.note ? ` · ${esc(m.note)}` : ''}</div></span>
+      <b class="nowrap" style="color:${qtyColor(q)}">${q > 0 ? '+' : ''}${fmtQty(q)} <span class="muted" style="font-weight:400">${esc(a?.unit || '')}</span></b></a>`;
+  }
+  function stockCell(a, loc = 'all') {
+    const q = loc === 'all' ? qtyOf(a.id) : qtyAt(a.id, loc);
+    const cls = q < 0 ? 'bad' : loc === 'all' && isLow(a) ? 'warn' : '';
+    return cls ? `<span class="badge ${cls} plain">${fmtQty(q)} ${esc(a.unit || '')}</span>` : `<b>${fmtQty(q)}</b> <span class="muted">${esc(a.unit || '')}</span>`;
+  }
+  const locOpts = (val, withAll = false) => opts([...(withAll ? [['all', 'Alle Lagerorte']] : []), ...locations().map((l) => [l.id, l.name])], val);
+  const multiLoc = () => list('locations').length > 0;
+
+  function viewStock() {
+    const f = UI.f;
+    const all = activeArticles();
+    const archived = list('articles').filter((a) => a.archived);
+    const cats = [...new Set(all.map((a) => a.category).filter(Boolean))].sort();
+    const loc = f.stockLoc ?? 'all';
+    const q = String(f.stockQ || '').toLowerCase();
+    let rows = f.stockArchived ? archived : all;
+    if (q) rows = rows.filter((a) => [a.sku, a.name, a.ean, a.category, a.bin].some((v) => String(v || '').toLowerCase().includes(q)));
+    if (f.stockCat) rows = rows.filter((a) => a.category === f.stockCat);
+    if (loc !== 'all') rows = rows.filter((a) => qtyAt(a.id, loc) !== 0 || (a.locationId || '') === loc);
+    if (f.stockLow) rows = rows.filter(isLow);
+    const qOf = (a) => (loc === 'all' ? qtyOf(a.id) : qtyAt(a.id, loc));
+    const value = sum(rows, (a) => Math.max(0, qOf(a)) * num(a.cost));
+    const low = all.filter(isLow).length;
+    return `${pageHead('Bestand', `${all.length} Lagerartikel · Lagerwert ${money(sum(all, (a) => Math.max(0, qtyOf(a.id)) * num(a.cost)))}`,
+      `<button class="btn" data-act="stock-csv">${icon('download')} CSV</button>
+       ${multiLoc() ? `<button class="btn" data-act="transfer-new">${icon('swap')} Umbuchen</button>` : ''}
+       <button class="btn" data-act="move-new" data-type="in">${icon('download')} Wareneingang</button>
+       <button class="btn primary" data-act="art-new">${icon('plus')} Lagerartikel</button>`)}
+      <div class="card">
+        <div class="toolbar">
+          <label class="search">${icon('search')}<input type="search" placeholder="Nr., Name, EAN, Lagerplatz …" value="${esc(f.stockQ || '')}" data-keep="stockQ" data-filter="stockQ"></label>
+          ${cats.length ? `<select data-filter="stockCat">${opts([['', 'Alle Kategorien'], ...cats.map((c) => [c, c])], f.stockCat || '')}</select>` : ''}
+          ${multiLoc() ? `<select data-filter="stockLoc">${locOpts(loc, true)}</select>` : ''}
+          <div class="chips"><button class="chip ${f.stockLow ? 'on' : ''}" data-act="stock-low-toggle">Nachbestellen<span class="n">${low}</span></button>
+            ${archived.length ? `<button class="chip ${f.stockArchived ? 'on' : ''}" data-act="stock-arch-toggle">Archiviert<span class="n">${archived.length}</span></button>` : ''}</div>
+        </div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Artikel</th><th class="hide-m">Kategorie</th><th class="hide-m">Lagerplatz</th><th class="num">Bestand</th><th class="num hide-m">Reserviert</th><th class="num hide-m">Mindest</th><th class="num hide-m">Lagerwert</th><th></th></tr></thead><tbody>
+          ${rows.map((a) => {
+            const res = reservedOf(a.id);
+            return `<tr class="click" data-href="#/article/${esc(a.id)}">
+              <td><div class="t1">${esc(a.name)}</div><div class="t2">${esc([a.sku, a.ean ? `EAN ${a.ean}` : ''].filter(Boolean).join(' · '))}</div></td>
+              <td class="hide-m">${esc(a.category || '–')}</td>
+              <td class="hide-m">${esc(locName(a.locationId))}${a.bin ? `<div class="t2">${esc(a.bin)}</div>` : ''}</td>
+              <td class="num">${stockCell(a, loc)}</td>
+              <td class="num hide-m">${res ? `${fmtQty(res)}<div class="t2" ${qtyOf(a.id) - res < 0 ? 'style="color:var(--bad);font-weight:600"' : ''}>verfügbar ${fmtQty(qtyOf(a.id) - res)}</div>` : '<span class="muted">–</span>'}</td>
+              <td class="num hide-m muted">${num(a.min) ? fmtQty(a.min) : '–'}</td>
+              <td class="num hide-m">${money(Math.max(0, qOf(a)) * num(a.cost))}</td>
+              <td class="right nowrap">${a.archived ? '' : `<button class="btn ghost icon sm" data-act="move-new" data-type="in" data-id="${esc(a.id)}" title="Wareneingang">${icon('plus')}</button><button class="btn ghost icon sm" data-act="move-new" data-type="out" data-id="${esc(a.id)}" title="Warenausgang">${icon('minus')}</button>`}</td></tr>`;
+          }).join('')}</tbody>
+          <tfoot><tr><td colspan="6" class="muted" style="padding:11px 14px">${rows.length} Artikel</td><td class="num hide-m" style="padding:11px 14px"><b>${money(value)}</b></td><td></td></tr></tfoot></table></div>`
+          : empty('layers', all.length ? 'Keine Treffer' : 'Noch keine Lagerartikel', all.length ? 'Passe Suche oder Filter an.' : 'Lege Artikel mit Anfangsbestand, Mindestbestand und Lagerplatz an.',
+            all.length ? '' : `<button class="btn primary" data-act="art-new">${icon('plus')} Ersten Lagerartikel anlegen</button>`)}
+      </div>`;
+  }
+
+  function viewArticle(id) {
+    const a = get('articles', id);
+    if (!a) return empty('layers', 'Artikel nicht gefunden', 'Er wurde vielleicht gelöscht.', '<a class="btn" href="#/stock">Zum Bestand</a>');
+    const q = qtyOf(a.id);
+    const res = reservedOf(a.id);
+    const mv = list('movements').filter((m) => m.articleId === a.id).sort((x, y) => String(y.date).localeCompare(String(x.date)) || String(y.createdAt).localeCompare(String(x.createdAt)));
+    const perLoc = locations().map((l) => ({ ...l, q: qtyAt(a.id, l.id) })).filter((l) => l.q !== 0 || l.id === (a.locationId || ''));
+    const supplier = get('contacts', a.supplierId);
+    const openShips = list('shipments').filter((s) => !DONE_ST.includes(s.status) && (s.items || []).some((it) => it.articleId === a.id));
+    return `${pageHead(`${esc(a.name)} ${a.archived ? '<span class="badge">archiviert</span>' : isLow(a) ? '<span class="badge warn">nachbestellen</span>' : ''}`,
+      esc([a.sku, a.ean ? `EAN ${a.ean}` : '', a.category].filter(Boolean).join(' · ')),
+      `${a.archived ? '' : `<button class="btn" data-act="move-new" data-type="in" data-id="${esc(a.id)}">${icon('plus')} Eingang</button>
+       <button class="btn" data-act="move-new" data-type="out" data-id="${esc(a.id)}">${icon('minus')} Ausgang</button>
+       ${multiLoc() ? `<button class="btn" data-act="transfer-new" data-id="${esc(a.id)}">${icon('swap')} Umbuchen</button>` : ''}
+       <button class="btn" data-act="count-one" data-id="${esc(a.id)}">${icon('clipboard')} Zählen</button>`}
+       <button class="btn primary" data-act="art-edit" data-id="${esc(a.id)}">${icon('edit')} Bearbeiten</button>`,
+      '<a href="#/stock">Bestand</a> /')}
+      <div class="kpis">
+        <div class="kpi hero"><div class="label"><span class="ic">${icon('layers')}</span>Bestand</div><div class="value">${fmtQty(q)} <span style="font-size:15px;font-weight:500">${esc(a.unit || '')}</span></div><div class="sub">${num(a.min) ? `Mindestbestand ${fmtQty(a.min)}` : 'kein Mindestbestand'}</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('package')}</span>Reserviert</div><div class="value">${fmtQty(res)}</div><div class="sub">in offenen Sendungen</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('checkc')}</span>Verfügbar</div><div class="value" style="${q - res < 0 ? 'color:var(--bad)' : ''}">${fmtQty(q - res)}</div><div class="sub">Bestand minus Reservierungen</div></div>
+        <div class="kpi"><div class="label"><span class="ic">${icon('euro')}</span>Lagerwert</div><div class="value">${money(Math.max(0, q) * num(a.cost))}</div><div class="sub">${money(a.cost)} je ${esc(a.unit || 'Einheit')}</div></div>
+      </div>
+      <div class="grid g-main">
+        <div class="card"><div class="card-head"><h2>Bewegungen</h2><span class="muted">${mv.length}</span></div>
+          ${mv.length ? movesTable(mv, { showArticle: false }) : `<div class="card-body"><p class="muted" style="margin:0">Noch keine Bewegungen.</p></div>`}</div>
+        <div class="stack">
+          <div class="card"><div class="card-head"><h2>Bestand je Lagerort</h2></div><div class="list">
+            ${perLoc.map((l) => `<div class="item">${icon('warehouse')}<span class="grow">${esc(l.name)}${l.id === (a.locationId || '') && a.bin ? `<div class="t2 muted">Platz ${esc(a.bin)}</div>` : ''}</span><b>${fmtQty(l.q)}</b> <span class="muted">${esc(a.unit || '')}</span></div>`).join('')}
+          </div></div>
+          <div class="card"><div class="card-head"><h2>Stammdaten</h2></div><div class="card-body"><dl class="kv">
+            <dt>Einheit</dt><dd>${esc(a.unit || '–')}</dd>
+            <dt>Gewicht</dt><dd>${num(a.weight) ? `${NUMF3.format(a.weight)} kg je ${esc(a.unit || 'Einheit')}` : '–'}</dd>
+            <dt>Lieferant</dt><dd>${supplier ? esc(supplier.name) : '–'}</dd>
+            ${a.description ? `<dt>Beschreibung</dt><dd>${esc(a.description)}</dd>` : ''}
+          </dl></div></div>
+          ${openShips.length ? `<div class="card"><div class="card-head"><h2>Offene Sendungen</h2></div><div class="list">${openShips.map((s) => `<a class="item" href="#/shipment/${esc(s.id)}"><span class="grow"><b>${esc(s.number)}</b> <span class="muted">· ${esc(s.recipient?.name || '')}</span></span><b>${fmtQty(sum((s.items || []).filter((it) => it.articleId === a.id), (it) => it.qty))}</b>${badge(SHIP_STATUS, s.status)}</a>`).join('')}</div></div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function movesTable(mv, { showArticle = true } = {}) {
+    return `<div class="table-wrap"><table><thead><tr><th>Datum</th>${showArticle ? '<th>Artikel</th>' : ''}<th>Art</th>${multiLoc() ? '<th class="hide-m">Lagerort</th>' : ''}<th class="num">Menge</th><th class="hide-m">Notiz / Beleg</th><th class="hide-m">Von</th><th></th></tr></thead><tbody>
+      ${mv.map((m) => {
+        const a = get('articles', m.articleId);
+        const q = num(m.qty);
+        const canStorno = canStock() && MANUAL_MV.includes(m.type) && !m.reversedBy;
+        const ship = m.shipmentId && get('shipments', m.shipmentId);
+        return `<tr${m.reversedBy ? ' style="opacity:.55"' : ''}><td class="nowrap">${fmtDate(m.date)}</td>
+          ${showArticle ? `<td><a href="#/article/${esc(m.articleId)}"><b>${esc(a?.name || '(gelöscht)')}</b></a><div class="t2">${esc(a?.sku || '')}</div></td>` : ''}
+          <td><span class="badge plain ${m.type === 'storno' ? '' : q >= 0 ? 'ok' : 'violet'}">${esc(MV_TYPES[m.type] || m.type)}</span></td>
+          ${multiLoc() ? `<td class="hide-m">${esc(locName(m.locationId))}</td>` : ''}
+          <td class="num"><b style="color:${qtyColor(q)}">${q > 0 ? '+' : ''}${fmtQty(q)}</b> <span class="muted">${esc(a?.unit || '')}</span></td>
+          <td class="hide-m">${ship ? `<a href="#/shipment/${esc(ship.id)}">${esc(m.note)}</a>` : esc(m.note || '')}</td>
+          <td class="hide-m muted">${esc(m.by || '')}</td>
+          <td class="right">${canStorno ? `<button class="btn ghost icon sm" data-act="move-storno" data-id="${esc(m.id)}" title="Stornieren (Gegenbuchung)">${icon('undo')}</button>` : m.reversedBy ? '<small class="muted">storniert</small>' : ''}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+  }
+
+  function viewMoves() {
+    const f = UI.f;
+    const q = String(f.moveQ || '').toLowerCase();
+    let mv = list('movements').sort((x, y) => String(y.date).localeCompare(String(x.date)) || String(y.createdAt).localeCompare(String(x.createdAt)));
+    const total = mv.length;
+    if (f.moveType) mv = mv.filter((m) => m.type === f.moveType);
+    if ((f.moveLoc ?? 'all') !== 'all') mv = mv.filter((m) => (m.locationId || '') === f.moveLoc);
+    if (q) mv = mv.filter((m) => { const a = get('articles', m.articleId) || {}; return [a.name, a.sku, m.note, m.by].some((v) => String(v || '').toLowerCase().includes(q)); });
+    const shown = mv.slice(0, 500);
+    return `${pageHead('Bewegungen', 'Jeder Zu- und Abgang – unveränderlich protokolliert, Korrekturen per Storno.',
+      `${multiLoc() ? `<button class="btn" data-act="transfer-new">${icon('swap')} Umbuchen</button>` : ''}
+       <button class="btn" data-act="move-new" data-type="out">${icon('minus')} Warenausgang</button>
+       <button class="btn primary" data-act="move-new" data-type="in">${icon('plus')} Wareneingang</button>`)}
+      <div class="card">
+        <div class="toolbar">
+          <label class="search">${icon('search')}<input type="search" placeholder="Artikel, Notiz, Person …" value="${esc(f.moveQ || '')}" data-keep="moveQ" data-filter="moveQ"></label>
+          <select data-filter="moveType">${opts([['', 'Alle Arten'], ...Object.entries(MV_TYPES)], f.moveType || '')}</select>
+          ${multiLoc() ? `<select data-filter="moveLoc">${locOpts(f.moveLoc ?? 'all', true)}</select>` : ''}
+          <span class="muted">${mv.length} von ${total}</span>
+        </div>
+        ${shown.length ? movesTable(shown) : empty('swap', total ? 'Keine Treffer' : 'Noch keine Bewegungen', total ? 'Passe die Filter an.' : 'Buche einen Wareneingang oder lege Artikel mit Anfangsbestand an.')}
+        ${mv.length > shown.length ? `<p class="muted" style="padding:12px 16px;margin:0">Die neuesten ${shown.length} von ${mv.length} – nutze die Filter.</p>` : ''}
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- Inventur (Zählung über alle Artikel)
+  const invKey = () => `nl-inv-${S.me.company.id}`;
+  function invState() {
+    if (!UI.inv) {
+      UI.inv = { loc: '', cat: '', counts: {} };
+      try { Object.assign(UI.inv, JSON.parse(localStorage.getItem(invKey()) || '{}')); } catch { /* kein Entwurf */ }
+    }
+    return UI.inv;
+  }
+  const saveInv = () => { try { localStorage.setItem(invKey(), JSON.stringify(UI.inv)); } catch { /* privat */ } };
+  const invRows = () => {
+    const st = invState();
+    return activeArticles().filter((a) => !st.cat || a.category === st.cat)
+      .filter((a) => !multiLoc() || (a.locationId || '') === st.loc || qtyAt(a.id, st.loc) !== 0)
+      .sort(byText((a) => `${a.bin || '~'} ${a.name}`));
+  };
+  const invDiffs = () => {
+    const st = invState();
+    return invRows().filter((a) => st.counts[a.id] !== undefined && st.counts[a.id] !== '')
+      .map((a) => ({ a, counted: num(st.counts[a.id]), book: qtyAt(a.id, st.loc) }))
+      .map((x) => ({ ...x, diff: r3(x.counted - x.book) }));
+  };
+
+  function viewInventory() {
+    const st = invState();
+    const rows = invRows();
+    const cats = [...new Set(activeArticles().map((a) => a.category).filter(Boolean))].sort();
+    const d = invDiffs();
+    const nDiff = d.filter((x) => x.diff).length;
+    return `${pageHead('Inventur', 'Zählliste drucken, gezählte Mengen eintragen, Differenzen in einem Schritt buchen. Der Zwischenstand bleibt auf diesem Gerät gespeichert.',
+      `<button class="btn" data-act="inv-print">${icon('print')} Zählliste</button>
+       ${d.length ? `<button class="btn ghost" data-act="inv-clear">${icon('x')} Zählung verwerfen</button>` : ''}
+       <button class="btn primary" data-act="inv-book" ${d.length ? '' : 'disabled'}>${icon('check')} ${nDiff ? `${nDiff} Differenz${nDiff === 1 ? '' : 'en'} buchen` : 'Zählung abschließen'}</button>`)}
+      <div class="card">
+        <div class="toolbar">
+          ${multiLoc() ? `<label class="row" style="gap:8px"><span class="muted">Lagerort</span><select data-inv-set="loc">${locOpts(st.loc)}</select></label>` : ''}
+          ${cats.length ? `<select data-inv-set="cat">${opts([['', 'Alle Kategorien'], ...cats.map((c) => [c, c])], st.cat)}</select>` : ''}
+          <span class="grow"></span><span class="muted" id="inv-sum">${d.length} von ${rows.length} gezählt · ${nDiff} mit Differenz</span>
+        </div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Artikel</th><th class="hide-m">Lagerplatz</th><th class="num">Buchbestand</th><th style="width:150px">Gezählt</th><th class="num">Differenz</th></tr></thead><tbody>
+          ${rows.map((a) => {
+            const book = qtyAt(a.id, st.loc);
+            const c = st.counts[a.id];
+            const diff = c === undefined || c === '' ? null : r3(num(c) - book);
+            return `<tr><td><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.sku || '')}</div></td><td class="hide-m">${esc(a.bin || '–')}</td>
+              <td class="num">${fmtQty(book)} <span class="muted">${esc(a.unit || '')}</span></td>
+              <td><input data-inv="${esc(a.id)}" data-keep="inv-${esc(a.id)}" value="${esc(c ?? '')}" inputmode="decimal" placeholder="–" style="height:32px;text-align:right"></td>
+              <td class="num" id="invd-${esc(a.id)}">${invDiffHtml(diff, a)}</td></tr>`;
+          }).join('')}</tbody></table></div>`
+          : empty('clipboard', 'Keine Artikel', 'An diesem Lagerort bzw. in dieser Kategorie gibt es keine Artikel.')}
+      </div>`;
+  }
+  const invDiffHtml = (diff, a) => (diff === null ? '<span class="muted">–</span>' : diff === 0 ? `<span class="badge ok plain">${icon('check')} stimmt</span>`
+    : `<b style="color:${qtyColor(diff)}">${diff > 0 ? '+' : ''}${fmtQty(diff)}</b> <span class="muted">${esc(a.unit || '')}</span>`);
+
+  async function bookInventory() {
+    const st = invState();
+    const d = invDiffs();
+    const nd = d.filter((x) => x.diff);
+    const val = sum(nd, (x) => x.diff * num(x.a.cost));
+    if (!(await confirmBox('Inventur abschließen?', `${d.length} Artikel gezählt, <b>${nd.length}</b> mit Differenz (Wert ${money(val)}). Die Differenzen werden als Inventurbuchung erfasst.`, { ok: 'Buchen' }))) return;
+    for (const x of nd) {
+      await save('movements', { articleId: x.a.id, qty: x.diff, type: 'correction', locationId: st.loc, date: today(), unitCost: num(x.a.cost), note: `Inventur ${fmtDate(today())}` });
+    }
+    st.counts = {};
+    saveInv();
+    toast(nd.length ? `${nd.length} Inventurdifferenz${nd.length === 1 ? '' : 'en'} gebucht.` : 'Inventur abgeschlossen – alle Bestände stimmen.');
+    render();
+  }
+
+  function printCountSheet() {
+    const st = invState();
+    const rows = invRows();
+    printHtml(`<div class="doc">${docHead('Zählliste', `Inventur ${fmtDate(today())}<br>${esc(locName(st.loc))}${st.cat ? `<br>${esc(st.cat)}` : ''}`)}
+      <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Lagerplatz</th><th style="text-align:left">Nr.</th><th style="text-align:left">Artikel</th><th style="text-align:left">Einheit</th><th style="text-align:left;width:32mm">Gezählt</th><th style="text-align:left;width:40mm">Bemerkung</th></tr></thead><tbody>
+      ${rows.map((a) => `<tr><td>${esc(a.bin || '')}</td><td>${esc(a.sku || '')}</td><td>${esc(a.name)}</td><td>${esc(a.unit || '')}</td><td style="border-bottom:1px solid #999"></td><td style="border-bottom:1px solid #999"></td></tr>`).join('')}
+      </tbody></table>
+      <p style="font-size:9pt;color:#555;margin-top:10px">Blindzählung: Sollbestände werden bewusst nicht angezeigt.</p>
+      <div class="sign"><div>Gezählt von / Datum</div><div>Kontrolliert von</div></div></div>`);
+  }
+
+  function exportStockCsv() {
+    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const nf = (n) => String(r3(n)).replace('.', ',');
+    const lines = [['Nr.', 'Artikel', 'EAN', 'Kategorie', 'Einheit', 'Lagerort', 'Lagerplatz', 'Bestand', 'Reserviert', 'Mindestbestand', 'Einkaufswert', 'Lagerwert'].map(cell).join(';')];
+    activeArticles().forEach((a) => {
+      const q = qtyOf(a.id);
+      lines.push([a.sku, a.name, a.ean, a.category, a.unit, locName(a.locationId), a.bin, nf(q), nf(reservedOf(a.id)), nf(a.min), nf(a.cost), nf(Math.max(0, q) * num(a.cost))].map(cell).join(';'));
+    });
+    const blob = new Blob([`﻿${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bestand_${today()}.csv`;
+    document.body.append(link);
+    link.click();
+    setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 500);
+  }
+
+  // ---------------------------------------------------------------- Lagerorte
+  function viewLocations() {
+    const arts = activeArticles();
+    const rows = locations().map((l) => {
+      const items = arts.filter((a) => qtyAt(a.id, l.id) !== 0);
+      return { ...l, n: items.length, units: sum(items, (a) => qtyAt(a.id, l.id)), value: sum(items, (a) => Math.max(0, qtyAt(a.id, l.id)) * num(a.cost)) };
+    });
+    return `${pageHead('Lagerorte', 'Lager, Hallen oder Außenlager. Den genauen Platz (Regal, Fach) trägst du je Artikel ein.', `<button class="btn primary" data-act="loc-new">${icon('plus')} Lagerort</button>`)}
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Lagerort</th><th class="hide-m">Adresse / Notiz</th><th class="num">Artikel</th><th class="num">Einheiten</th><th class="num">Lagerwert</th></tr></thead><tbody>
+        ${rows.map((l) => `<tr class="click" data-act="loc-edit" data-id="${esc(l.id)}"><td><div class="row">${icon('warehouse')}<div><div class="t1">${esc(l.name)}</div><div class="t2">${l.id ? esc(l.code || '') : 'Standard-Lagerort'}</div></div></div></td>
+          <td class="hide-m">${esc(l.address || l.note || '–')}</td><td class="num">${l.n}</td><td class="num">${fmtQty(l.units)}</td><td class="num">${money(l.value)}</td></tr>`).join('')}
+      </tbody></table></div></div>
+      ${!multiLoc() ? `<div class="alert violet" style="margin-top:16px">${icon('info')}<p>Mit einem zweiten Lagerort kannst du Ware zwischen Lagern umbuchen und je Lager zählen.</p></div>` : ''}`;
+  }
+
+  function locationForm(id) {
+    const main = id === '';
+    const l = main ? { name: locations()[0].name } : (id && get('locations', id)) || {};
+    const isNew = !main && !l.id;
+    const used = !isNew && activeArticles().some((a) => qtyAt(a.id, main ? '' : l.id) !== 0);
+    modal({
+      title: isNew ? 'Neuer Lagerort' : l.name, size: 'sm',
+      extra: !isNew && !main ? `<button type="button" class="btn danger sm" data-del ${used ? 'disabled title="Hier liegt noch Ware"' : ''}>${icon('trash')} Löschen</button>` : '',
+      body: `<div class="form">${inp('name', 'Bezeichnung *', l.name, 'required maxlength="60" placeholder="z. B. Außenlager Süd"')}
+        ${main ? '<small class="muted">Der Standard-Lagerort wird verwendet, solange nichts anderes gewählt ist.</small>' : `${inp('code', 'Kürzel', l.code, 'maxlength="12" placeholder="z. B. AL-S"')}${area('address', 'Adresse / Notiz', l.address, 'maxlength="300"')}`}</div>`,
+      onOpen(form, close) {
+        $('[data-del]', form)?.addEventListener('click', async () => {
+          if (await confirmBox('Lagerort löschen?', `<b>${esc(l.name)}</b> wird gelöscht.`, { ok: 'Löschen', danger: true })) { await remove('locations', l.id).catch(fail); close(); toast('Lagerort gelöscht.'); }
+        });
+      },
+      async onSubmit(form) {
+        const v = formData(form);
+        if (main) await save('settings', { ...companySettings(), id: 'company', mainLocation: v.name });
+        else await save('locations', { ...l, ...v });
+        toast('Lagerort gespeichert.');
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------- Artikel-Formular
+  function articleForm(a = null) {
+    const x = a || { unit: 'Stk', locationId: '' };
+    const isNew = !a;
+    const cats = [...new Set(list('articles').map((y) => y.category).filter(Boolean))].sort();
+    const suppliers = list('contacts').filter((c) => c.type === 'supplier' || c.type === 'partner').sort(byText((c) => c.name));
+    const hasMoves = !isNew && list('movements').some((m) => m.articleId === x.id);
+    modal({
+      title: isNew ? 'Neuer Lagerartikel' : x.name, size: 'lg', submit: isNew ? 'Anlegen' : 'Speichern',
+      extra: isNew ? '' : `<button type="button" class="btn sm" data-arch>${icon(x.archived ? 'undo' : 'inbox')} ${x.archived ? 'Reaktivieren' : 'Archivieren'}</button>${hasMoves ? '' : ` <button type="button" class="btn danger sm" data-del>${icon('trash')} Löschen</button>`}`,
+      body: `<div class="form">
+        <div class="cols">${inp('name', 'Bezeichnung *', x.name, 'required maxlength="160"')}<div class="cols" style="gap:10px">${inp('sku', 'Artikelnummer', x.sku, 'maxlength="40" placeholder="automatisch"')}${inp('ean', 'EAN / Barcode', x.ean, 'maxlength="40" inputmode="numeric"')}</div></div>
+        <div class="cols3"><label class="field"><span>Kategorie</span><input name="category" value="${esc(x.category || '')}" list="dl-cat" maxlength="60"></label>
+          <label class="field"><span>Einheit</span><input name="unit" value="${esc(x.unit || 'Stk')}" list="dl-unit" maxlength="20"></label>
+          ${inp('weight', 'Gewicht je Einheit (kg)', x.weight ? String(x.weight).replace('.', ',') : '', 'inputmode="decimal"', 'Für Sendungsgewicht')}</div>
+        <div class="cols3">${sel('locationId', 'Standard-Lagerort', locations().map((l) => [l.id, l.name]), x.locationId || '')}${inp('bin', 'Lagerplatz', x.bin, 'maxlength="40" placeholder="z. B. Regal A3, Fach 2"')}${inp('min', 'Mindestbestand', x.min ? String(x.min).replace('.', ',') : '', 'inputmode="decimal"', 'Darunter: „nachbestellen“')}</div>
+        <div class="cols3">${inp('cost', 'Einkaufswert je Einheit (€)', x.cost ? String(x.cost).replace('.', ',') : '', 'inputmode="decimal"', isNew ? '' : 'Wird bei Wareneingängen gemittelt')}
+          ${sel('supplierId', 'Lieferant', [['', '– kein –'], ...suppliers.map((c) => [c.id, c.name])], x.supplierId)}
+          ${isNew ? inp('initial', 'Anfangsbestand', '', 'inputmode="decimal" placeholder="0"') : `<label class="field"><span>Aktueller Bestand</span><input readonly value="${esc(`${fmtQty(qtyOf(x.id))} ${x.unit || ''}`)}"></label>`}</div>
+        ${area('description', 'Beschreibung / Hinweise', x.description, 'maxlength="2000" rows="2"')}
+        <datalist id="dl-cat">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+        <datalist id="dl-unit">${UNITS.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+      </div>`,
+      onOpen(form, close) {
+        $('[data-arch]', form)?.addEventListener('click', async () => {
+          try { await save('articles', { ...x, archived: !x.archived }); close(); toast(x.archived ? 'Artikel reaktiviert.' : 'Artikel archiviert.'); } catch (e) { fail(e); }
+        });
+        $('[data-del]', form)?.addEventListener('click', async () => {
+          if (await confirmBox('Artikel löschen?', `<b>${esc(x.name)}</b> hat noch keine Bewegungen und wird gelöscht.`, { ok: 'Löschen', danger: true })) {
+            await remove('articles', x.id).catch(fail); close(); toast('Artikel gelöscht.'); location.hash = '#/stock';
+          }
+        });
+      },
+      async onSubmit(form) {
+        const v = formData(form);
+        if (v.sku && list('articles').some((y) => y.sku === v.sku && y.id !== x.id)) throw new Error(`Die Artikelnummer ${v.sku} ist bereits vergeben.`);
+        const data = { ...x, name: v.name, sku: v.sku || x.sku || await nextNumber('article', 'A'), ean: v.ean, category: v.category, unit: v.unit || 'Stk',
+          weight: num(v.weight), locationId: v.locationId || '', bin: v.bin, min: num(v.min), cost: num(v.cost), supplierId: v.supplierId || null, description: v.description };
+        const saved = await save('articles', data);
+        if (isNew && num(v.initial)) await save('movements', { articleId: saved.id, qty: num(v.initial), type: 'initial', locationId: saved.locationId, date: today(), unitCost: saved.cost, note: 'Anfangsbestand' });
+        toast(isNew ? `Artikel ${saved.sku} angelegt.` : 'Artikel gespeichert.');
+        if (isNew) location.hash = `#/article/${saved.id}`;
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------- Wareneingang / -ausgang (mehrere Positionen)
+  const articleOptions = (val) => opts([['', 'Artikel wählen …'], ...activeArticles().map((a) => [a.id, `${articleLabel(a)} (${fmtQty(qtyOf(a.id))} ${a.unit || ''})`])], val);
+  const moveRow = (isIn, aid = '') => `<tr data-line><td><select data-k="articleId" style="min-width:220px">${articleOptions(aid)}</select></td>
+    <td><input data-k="qty" inputmode="decimal" placeholder="Menge" style="width:96px"></td>
+    ${isIn ? `<td><input data-k="unitCost" inputmode="decimal" placeholder="€" value="${esc(aid && get('articles', aid)?.cost ? String(get('articles', aid).cost).replace('.', ',') : '')}" style="width:96px"></td>` : ''}
+    <td><button type="button" class="btn ghost icon sm" data-rm title="Entfernen">${icon('x')}</button></td></tr>`;
+
+  function moveForm(type, articleId = '') {
+    if (!activeArticles().length) { toast('Bitte zuerst einen Lagerartikel anlegen.', 'bad'); return; }
+    const isIn = type === 'in';
+    const a0 = get('articles', articleId);
+    const suppliers = list('contacts').filter((c) => c.type === 'supplier' || c.type === 'partner').sort(byText((c) => c.name));
+    modal({
+      title: isIn ? 'Wareneingang buchen' : 'Warenausgang buchen', size: 'lg', submit: 'Buchen',
+      body: `<div class="form">
+        <div class="cols3">${inp('date', 'Datum *', today(), 'type="date" required')}
+          ${multiLoc() ? sel('locationId', isIn ? 'Einlagern in' : 'Entnehmen aus', locations().map((l) => [l.id, l.name]), a0?.locationId || '') : '<input type="hidden" name="locationId" value="">'}
+          ${isIn ? sel('supplierId', 'Lieferant', [['', '– kein –'], ...suppliers.map((c) => [c.id, c.name])], a0?.supplierId || '') : sel('reason', 'Grund', [['Verbrauch', 'Verbrauch'], ['Verkauf / Abholung', 'Verkauf / Abholung'], ['Bruch / Schwund', 'Bruch / Schwund'], ['Ausleihe', 'Ausleihe'], ['Rücksendung an Lieferant', 'Rücksendung an Lieferant'], ['Sonstiges', 'Sonstiges']], 'Verbrauch')}</div>
+        ${inp('note', isIn ? 'Lieferschein-Nr. / Notiz' : 'Notiz', '', 'maxlength="200"')}
+        <div class="table-wrap"><table><thead><tr><th>Artikel</th><th>Menge</th>${isIn ? '<th>Einkauf je Einheit</th>' : ''}<th></th></tr></thead><tbody data-lines>${moveRow(isIn, articleId)}</tbody></table></div>
+        <div><button type="button" class="btn sm" data-add>${icon('plus')} Position</button></div>
+        ${isIn ? '' : '<label class="check"><input type="checkbox" name="allowNeg" value="1"> Auch buchen, wenn der Bestand nicht reicht (Bestand wird negativ)</label>'}
+      </div>`,
+      onOpen(form) {
+        const tb = $('[data-lines]', form);
+        $('[data-add]', form).addEventListener('click', () => { tb.insertAdjacentHTML('beforeend', moveRow(isIn)); $('tr:last-child select', tb).focus(); });
+        tb.addEventListener('click', (e) => { if (e.target.closest('[data-rm]') && tb.children.length > 1) e.target.closest('tr').remove(); });
+        tb.addEventListener('change', (e) => {
+          if (e.target.dataset.k !== 'articleId' || !isIn) return;
+          const uc = $('[data-k="unitCost"]', e.target.closest('tr'));
+          const art = get('articles', e.target.value);
+          if (uc && art && !uc.value) uc.value = art.cost ? String(art.cost).replace('.', ',') : '';
+        });
+        $('[data-k="qty"]', tb)?.focus();
+      },
+      async onSubmit(form) {
+        const v = formData(form);
+        const lines = $$('[data-line]', form).map((tr) => Object.fromEntries($$('[data-k]', tr).map((i) => [i.dataset.k, i.value.trim()])))
+          .filter((l) => l.articleId && num(l.qty) > 0);
+        if (!lines.length) throw new Error('Bitte mindestens eine Position mit Artikel und Menge erfassen.');
+        if (!isIn && !v.allowNeg) {
+          const need = new Map();
+          lines.forEach((l) => need.set(l.articleId, (need.get(l.articleId) || 0) + num(l.qty)));
+          for (const [aid, n] of need) {
+            const have = qtyAt(aid, v.locationId);
+            if (n > have) throw new Error(`${get('articles', aid).name}: nur ${fmtQty(have)} am Lagerort ${locName(v.locationId)} vorhanden.`);
+          }
+        }
+        const supplier = get('contacts', v.supplierId);
+        const note = [isIn ? supplier?.name : v.reason, v.note].filter(Boolean).join(' · ');
+        for (const l of lines) {
+          const art = get('articles', l.articleId);
+          const qty = num(l.qty);
+          const unitCost = isIn && l.unitCost !== '' ? num(l.unitCost) : num(art.cost);
+          if (isIn && l.unitCost !== '') {
+            // gleitender Durchschnittspreis
+            const have = Math.max(0, qtyOf(art.id));
+            const cost = have > 0 && num(art.cost) ? (have * num(art.cost) + qty * unitCost) / (have + qty) : unitCost;
+            if (Math.abs(cost - num(art.cost)) > 0.0001) await save('articles', { ...art, cost: Math.round(cost * 10000) / 10000 });
+          }
+          await save('movements', { articleId: art.id, qty: isIn ? qty : -qty, type: isIn ? 'in' : 'out', locationId: v.locationId || '', date: v.date, unitCost, note, supplierId: v.supplierId || null });
+        }
+        toast(`${isIn ? 'Wareneingang' : 'Warenausgang'} gebucht (${lines.length} Position${lines.length === 1 ? '' : 'en'}).`);
+      },
+    });
+  }
+
+  function transferForm(articleId = '') {
+    const locs = locations();
+    const a0 = get('articles', articleId);
+    modal({
+      title: 'Umbuchen', submit: 'Umbuchen',
+      body: `<div class="form">
+        <label class="field"><span>Artikel *</span><select name="articleId" required>${articleOptions(articleId)}</select></label>
+        <div class="cols">${sel('from', 'Von', locs.map((l) => [l.id, l.name]), a0?.locationId || '')}${sel('to', 'Nach', locs.map((l) => [l.id, l.name]), (locs.find((l) => l.id !== (a0?.locationId || '')) || locs[0]).id)}</div>
+        <div class="cols">${inp('qty', 'Menge *', '', 'required inputmode="decimal"')}${inp('date', 'Datum', today(), 'type="date"')}</div>
+        <small class="muted" data-have></small>
+        ${inp('note', 'Notiz', '', 'maxlength="200"')}
+      </div>`,
+      onOpen(form) {
+        const upd = () => { const a = get('articles', form.elements.articleId.value); $('[data-have]', form).textContent = a ? `Am Ausgangslager: ${fmtQty(qtyAt(a.id, form.elements.from.value))} ${a.unit || ''}` : ''; };
+        form.addEventListener('change', upd);
+        upd();
+      },
+      async onSubmit(form) {
+        const v = formData(form);
+        const a = get('articles', v.articleId);
+        const qty = num(v.qty);
+        if (!a || qty <= 0) throw new Error('Bitte Artikel und Menge angeben.');
+        if (v.from === v.to) throw new Error('Ausgangs- und Ziellager sind gleich.');
+        if (qty > qtyAt(a.id, v.from)) throw new Error(`Am Lagerort ${locName(v.from)} sind nur ${fmtQty(qtyAt(a.id, v.from))} vorhanden.`);
+        const transferId = uid();
+        const base = { articleId: a.id, type: 'transfer', date: v.date || today(), unitCost: num(a.cost), transferId };
+        await save('movements', { ...base, qty: -qty, locationId: v.from, note: `→ ${locName(v.to)}${v.note ? ` · ${v.note}` : ''}` });
+        await save('movements', { ...base, qty, locationId: v.to, note: `← ${locName(v.from)}${v.note ? ` · ${v.note}` : ''}` });
+        toast(`${fmtQty(qty)} ${a.unit || ''} umgebucht.`);
+      },
+    });
+  }
+
+  function countOneForm(articleId) {
+    const a = get('articles', articleId);
+    modal({
+      title: `Zählen · ${a.name}`, size: 'sm', submit: 'Korrektur buchen',
+      body: `<div class="form">
+        ${multiLoc() ? sel('loc', 'Lagerort', locations().map((l) => [l.id, l.name]), a.locationId || '') : '<input type="hidden" name="loc" value="">'}
+        <label class="field"><span>Buchbestand</span><input readonly data-book></label>
+        ${inp('counted', 'Gezählter Bestand *', '', 'required inputmode="decimal"')}
+        ${inp('note', 'Notiz', 'Stichprobe', 'maxlength="200"')}</div>`,
+      onOpen(form) {
+        const upd = () => { $('[data-book]', form).value = `${fmtQty(qtyAt(a.id, form.elements.loc.value))} ${a.unit || ''}`; };
+        form.addEventListener('change', upd);
+        upd();
+        form.elements.counted.focus();
+      },
+      async onSubmit(form) {
+        const v = formData(form);
+        const diff = r3(num(v.counted) - qtyAt(a.id, v.loc));
+        if (!diff) { toast('Bestand stimmt – keine Korrektur nötig.'); return; }
+        await save('movements', { articleId: a.id, qty: diff, type: 'correction', locationId: v.loc || '', date: today(), unitCost: num(a.cost), note: v.note });
+        toast(`Differenz ${diff > 0 ? '+' : ''}${fmtQty(diff)} ${a.unit || ''} gebucht.`);
+      },
+    });
+  }
+
+  async function stornoMove(id) {
+    const m = get('movements', id);
+    if (!m || m.reversedBy) return;
+    const a = get('articles', m.articleId) || {};
+    const legs = m.transferId ? list('movements').filter((x) => x.transferId === m.transferId && !x.reversedBy) : [m];
+    if (!(await confirmBox('Bewegung stornieren?', `„${esc(MV_TYPES[m.type])} ${fmtQty(m.qty)} ${esc(a.unit || '')} ${esc(a.name || '')}“ wird durch eine Gegenbuchung aufgehoben${legs.length > 1 ? ' (beide Seiten der Umbuchung)' : ''}.`, { ok: 'Stornieren', danger: true }))) return;
+    for (const x of legs) {
+      const rev = await save('movements', { articleId: x.articleId, qty: -num(x.qty), type: 'storno', locationId: x.locationId || '', date: today(), unitCost: x.unitCost, note: `Storno: ${MV_TYPES[x.type]}${x.note ? ` (${x.note})` : ''}`, reverses: x.id });
+      await save('movements', { ...get('movements', x.id), reversedBy: rev.id });
+    }
+    toast('Bewegung storniert.');
   }
 
   // =============================================================== Touren
@@ -1205,7 +1811,7 @@
     });
   }
 
-  const CONTACT_TYPES = { customer: 'Kunde', recipient: 'Empfänger', partner: 'Partner / Subunternehmer' };
+  const CONTACT_TYPES = { customer: 'Kunde', recipient: 'Empfänger', supplier: 'Lieferant', partner: 'Partner / Subunternehmer' };
   function viewContacts() {
     const cs = list('contacts').sort(byText((c) => c.name));
     return tableView({
@@ -1333,7 +1939,8 @@
           </div></div>` : ''}
           <div class="card"><div class="card-head"><h2>Rollen</h2></div><div class="card-body"><dl class="kv" style="grid-template-columns:110px 1fr">
             <dt>Admin</dt><dd>Alles, inkl. Team, Einladungen und Firmendaten.</dd>
-            <dt>Disposition</dt><dd>Sendungen, Touren, Fuhrpark, Fahrer:innen und Kontakte.</dd>
+            <dt>Disposition</dt><dd>Lager, Sendungen, Touren, Fuhrpark, Fahrer:innen und Kontakte.</dd>
+            <dt>Lager</dt><dd>Artikel, Wareneingang/-ausgang, Umbuchung, Inventur und Kommissionierung von Sendungen.</dd>
             <dt>Fahrer:in</dt><dd>Sieht die eigene Tour, setzt Zustellstatus und Zustellnachweis.</dd>
           </dl></div></div>
         </div>
@@ -1431,8 +2038,34 @@
 
   // =============================================================== Beispieldaten
   async function loadDemo() {
-    if (!(await confirmBox('Beispieldaten laden?', 'Es werden 2 Fahrzeuge, 2 Fahrer:innen, 4 Kontakte, 6 Sendungen und eine Tour für heute angelegt. Du kannst alles später löschen.', { ok: 'Laden' }))) return;
+    if (!(await confirmBox('Beispieldaten laden?', 'Es werden 2 Lagerorte, 8 Lagerartikel mit Beständen, Lieferanten, Fahrzeuge, Fahrer:innen, 6 Sendungen und eine Tour für heute angelegt. Du kannst alles später löschen oder archivieren.', { ok: 'Laden' }))) return;
     const t = today();
+    // Lager
+    const loc2 = await save('locations', { name: 'Außenlager Simmering', code: 'AL-11', address: 'Leberstraße 64, 1110 Wien' });
+    const sup1 = await save('contacts', { type: 'supplier', name: 'Alpenquell Getränke GmbH', street: 'Quellenweg 3', zip: '5020', city: 'Salzburg', country: 'AT', phone: '+43 662 445566' });
+    const sup2 = await save('contacts', { type: 'supplier', name: 'Packwerk Verpackungen KG', street: 'Gewerbepark 12', zip: '2700', city: 'Wiener Neustadt', country: 'AT' });
+    const artDefs = [
+      ['Mineralwasser still 6 × 1,5 l', 'Getränke', 'Karton', 9.4, 2.85, 40, '', 'A-01-1', 64, sup1, '9001234500017'],
+      ['Apfelsaft naturtrüb 6 × 1 l', 'Getränke', 'Karton', 6.6, 5.9, 30, '', 'A-01-2', 22, sup1, '9001234500024'],
+      ['Kaffeebohnen Crema 1 kg', 'Kolonialwaren', 'Stk', 1.05, 13.2, 20, '', 'B-03-1', 48, null, '9001234500031'],
+      ['Olivenöl extra vergine 5 l', 'Kolonialwaren', 'Kanister', 4.7, 31.5, 8, '', 'B-04-2', 6, null, '9001234500048'],
+      ['Weizenmehl Type 700 25 kg', 'Backwaren', 'Sack', 25, 14.8, 10, loc2.id, 'H2-07', 35, null, ''],
+      ['Versandkarton 60 × 40 × 40', 'Verpackung', 'Stk', 0.6, 1.15, 100, loc2.id, 'H1-02', 250, sup2, ''],
+      ['Stretchfolie 500 mm', 'Verpackung', 'Rolle', 2.4, 7.9, 12, loc2.id, 'H1-03', 9, sup2, ''],
+      ['Europalette (EPAL)', 'Ladehilfsmittel', 'Stk', 25, 11, 20, loc2.id, 'Hof', 42, null, ''],
+    ];
+    const arts = [];
+    for (const [name, category, unit, weight, cost, min, locationId, bin, initial, sup, ean] of artDefs) {
+      const a = await save('articles', { name, sku: await nextNumber('article', 'A'), ean, category, unit, weight, cost, min, locationId, bin, supplierId: sup?.id || null });
+      await save('movements', { articleId: a.id, qty: initial, type: 'initial', locationId, date: addDays(t, -14), unitCost: cost, note: 'Anfangsbestand' });
+      arts.push(a);
+    }
+    await save('movements', { articleId: arts[0].id, qty: 24, type: 'in', locationId: '', date: addDays(t, -2), unitCost: 2.85, note: `${sup1.name} · LS 48211`, supplierId: sup1.id });
+    await save('movements', { articleId: arts[2].id, qty: -6, type: 'out', locationId: '', date: addDays(t, -1), unitCost: 13.2, note: 'Verbrauch · Büro' });
+    await save('movements', { articleId: arts[1].id, qty: -2, type: 'correction', locationId: '', date: addDays(t, -1), unitCost: 5.9, note: 'Inventur – Bruch' });
+    const shipItems = [
+      [[0, 10], [1, 6]], [[2, 12]], [[0, 8], [3, 2]], [[1, 8]], [[4, 20], [7, 1]], [[0, 30], [1, 12]],
+    ];
     const v1 = await save('vehicles', { plate: 'W-48213L', name: 'Sprinter 1', type: 'Transporter', payload: 1200, volume: 14, mileage: 84210, inspectionDue: addDays(t, 21), serviceDue: addDays(t, 75), status: 'active' });
     await save('vehicles', { plate: 'W-90377K', name: 'Iveco 7,5 t', type: 'LKW bis 7,5 t', payload: 3200, volume: 36, mileage: 152000, inspectionDue: addDays(t, 140), serviceDue: addDays(t, -3), status: 'active' });
     const d1 = await save('drivers', { name: 'Stefan Gruber', phone: '+43 660 1234567', licenseClasses: 'B, C1', licenseExpiry: addDays(t, 900), c95Expiry: addDays(t, 45), active: true, userId: S.me.user.id });
@@ -1445,7 +2078,7 @@
     ];
     const cs = [];
     for (const c of contacts) cs.push(await save('contacts', c));
-    const sender = { ...companyAddress(), name: cs[0].name, street: cs[0].street, zip: cs[0].zip, city: cs[0].city };
+    const sender = { ...companyAddress(), street: companyAddress().street || 'Lagerstraße 5', zip: companyAddress().zip || '1100', city: companyAddress().city || 'Wien' };
     const recips = [
       cs[1], cs[2],
       { name: 'Hotel Am Stadtpark', street: 'Johannesgasse 26', zip: '1010', city: 'Wien', country: 'AT', phone: '+43 1 7110000' },
@@ -1459,7 +2092,8 @@
       const data = {
         service: i === 2 ? 'express' : i > 3 ? 'freight' : 'standard', customerId: cs[0].id, sender,
         recipient: { name: r.name, contact: r.contact || '', street: r.street, zip: r.zip, city: r.city, country: r.country || 'AT', phone: r.phone || '' },
-        packages: [{ desc: i > 3 ? 'Palette' : 'Karton Backwaren', qty: i > 3 ? 1 : 2 + (i % 2), weight: i > 3 ? 180 : 6.5, l: i > 3 ? 120 : 60, w: i > 3 ? 80 : 40, h: i > 3 ? 110 : 30 }],
+        items: shipItems[i].map(([ai, qty]) => ({ articleId: arts[ai].id, qty, locationId: arts[ai].locationId })),
+        packages: [{ desc: i > 3 ? 'Palette' : 'Karton', qty: i > 3 ? 1 : 1 + (i % 2), weight: Math.round(sum(shipItems[i], ([ai, qty]) => qty * arts[ai].weight) / (i > 3 ? 1 : 1 + (i % 2))), l: i > 3 ? 120 : 60, w: i > 3 ? 80 : 40, h: i > 3 ? 110 : 40 }],
         deliveryDate: i < 4 ? t : addDays(t, 1), windowFrom: i === 2 ? '08:00' : '', windowTo: i === 2 ? '10:00' : '', cod: i === 1 ? 84.9 : 0,
         notes: i === 0 ? 'Lieferung über den Hintereingang, bitte klingeln.' : '',
         number: await nextNumber('shipment', 'S'), trackingCode: `NL${randomCode(10)}`, status: 'draft',
@@ -1525,6 +2159,27 @@
     'print-tour': (d) => printTour(get('tours', d.id)),
     'drv-deliver': (d) => deliverForm(get('shipments', d.id)),
     'drv-fail': (d) => failForm(get('shipments', d.id)),
+
+    'art-new': () => articleForm(),
+    'art-edit': (d) => articleForm(get('articles', d.id)),
+    'move-new': (d) => moveForm(d.type, d.id || ''),
+    'transfer-new': (d) => transferForm(d.id || ''),
+    'count-one': (d) => countOneForm(d.id),
+    'move-storno': (d) => stornoMove(d.id),
+    'stock-low': () => { UI.f.stockLow = true; UI.f.stockArchived = false; location.hash = '#/stock'; },
+    'stock-low-toggle': () => { UI.f.stockLow = !UI.f.stockLow; UI.f.stockArchived = false; render(); },
+    'stock-arch-toggle': () => { UI.f.stockArchived = !UI.f.stockArchived; UI.f.stockLow = false; render(); },
+    'stock-csv': () => exportStockCsv(),
+    'inv-print': () => printCountSheet(),
+    'inv-book': () => bookInventory(),
+    'inv-clear': async () => {
+      if (!(await confirmBox('Zählung verwerfen?', 'Alle eingetragenen Zählmengen werden gelöscht. Es wird nichts gebucht.', { ok: 'Verwerfen', danger: true }))) return;
+      invState().counts = {};
+      saveInv();
+      render();
+    },
+    'loc-new': () => locationForm(null),
+    'loc-edit': (d) => locationForm(d.id),
 
     'veh-new': () => vehicleForm(),
     'veh-edit': (d) => vehicleForm(get('vehicles', d.id)),
@@ -1625,6 +2280,9 @@
     if (row && !e.target.closest('a, button, input, select')) location.hash = row.dataset.href;
   });
   document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.dataset.inv) { invState().counts[t.dataset.inv] = t.value; saveInv(); debouncedRender(); return; }
+    if (t.dataset.invSet) { invState()[t.dataset.invSet] = t.value; saveInv(); render(); return; }
     const k = e.target.dataset.filter;
     if (!k) return;
     setPath(UI.f, k, e.target.value);
